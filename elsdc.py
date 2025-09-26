@@ -33,7 +33,18 @@ class _Polygon(Structure):
         ("dim", c_int), ("pts", POINTER(_PointD))
     ]
 
-
+""" 
+Elliptical/circular ring structure. A ring is defined by end points, width,
+    center, orientation, axes, delimiting angles.
+float x1, y1, x2, y2;     End points of the circle/ellipse arc 
+float width;              ring width
+float cx, cy;             center of the circle/ellipse
+float theta;              ellipse orientation; 0 for circle
+float ax, bx;             ellipse axes; ax=bx for circle
+float ang_start, ang_end; delimiting angles
+float wmin, wmax;         width towards interior and exterior
+int full;                 if full == 1, circle/ellipse complete, used for display
+"""
 class Ring:
     def __init__(self, x1: float, y1: float, x2: float, y2: float, 
         width: float, cx: float, cy: float, theta: float, ax: float, bx: float,
@@ -57,7 +68,11 @@ class Ring:
         self.full = full
         self.label = label
 
-
+"""
+Polygon defined through consecutive ends of its segments.
+int dim;                number of segment endpoints in the polygon; it is twice the number of line segments of the polygon
+PointD *pts;            endpoints of the segments in the polygon
+"""
 class Polygon:
     def __init__(self, dim: int, pts: np.ndarray, label: int):
         self.dim = dim
@@ -78,7 +93,7 @@ def detect_primitives(img: np.ndarray):
         ))
     for i in range(p_set.poly_count):
         elt = p_set.poly_arr[i]
-        num_pts = elt.dim // 2
+        num_pts = elt.dim
         pts = np.empty((num_pts, 2))
         _pts = elt.pts
         for j in range(num_pts):
