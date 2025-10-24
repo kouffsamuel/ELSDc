@@ -212,6 +212,25 @@ PImageDouble new_PImageDouble_ini( unsigned int xsize, unsigned int ysize,
   return image;
 }
 
+PImageDouble new_PImageDouble_ptr( unsigned int xsize, unsigned int ysize,
+                                   double *data )
+{
+  PImageDouble image;
+
+  /* check parameters */
+  if( (xsize == 0) || (ysize == 0) ) 
+    error("new_PImageDouble_ptr: invalid image size.");
+  if( data == NULL ) 
+    error("new_PImageDouble_ptr: nullptr data pointer.");
+
+  /* get memory for structure only */
+  image = new_PImageDouble(xsize, ysize);
+
+  image->data = data;
+
+  return image;
+}
+
 
 /*----------------------------------------------------------------------------*/
 /** Compute image gradient orientations.
@@ -281,6 +300,7 @@ void img_gradient_sort( PImageDouble in, double threshold, CoordList **list_p,
 {
   unsigned int xsize, ysize, adr, ind, i, j;
   double com1, com2, gx, gy, norm, norm2;
+  int use_precomputed = 1;
 
   /* the rest of the variables are used for pseudo-ordering
      the gradient magnitude values */
@@ -306,11 +326,20 @@ void img_gradient_sort( PImageDouble in, double threshold, CoordList **list_p,
   xsize = in->xsize;
   ysize = in->ysize;
 
-  /* allocate output angles image */
-  *angles = new_PImageDouble( in->xsize, in->ysize );
+  if((*gradmag != NULL) && (*angles != NULL)){
+    if((*gradmag)->xsize != xsize || (*gradmag)->ysize != ysize || (*angles)->xsize != xsize || (*angles)->ysize != ysize){
+        error("img_gradient_sort: precomputed gradmag/angles dimensions mismatch.");
+       }
+    use_precomputed = 1;
+  }else{
+    use_precomputed = 0;
+    /* allocate output angles image */
+    *angles = new_PImageDouble( in->xsize, in->ysize );
+    *gradmag = new_PImageDouble( in->xsize, in->ysize );
+  }
+  
   /* allocate image of gradient modulus and gradient vector components
      on Ox and Oy */
-  *gradmag = new_PImageDouble( in->xsize, in->ysize );
   *gradx   = new_PImageDouble( in->xsize, in->ysize );
   *grady   = new_PImageDouble( in->xsize, in->ysize );
 
@@ -331,20 +360,29 @@ void img_gradient_sort( PImageDouble in, double threshold, CoordList **list_p,
 
   /*** remaining part ***/
   for( i=0; i<ysize-1; i++ )
-    for( j=0; j<xsize-1; j++ )
-      {
-        adr = i * xsize + j;
+    for( j=0; j<xsize-1; j++ ){
+      adr = i * xsize + j;
+      if(use_precomputed){
+        norm = (*gradmag)->data[adr];
+        if((*angles)->data[adr] != NOTDEF){
+            gx = norm * cos((*angles)->data[adr]);
+            gy = norm * sin((*angles)->data[adr]);
+        }else{
+            gx = 0.0;
+            gy = 0.0;
+        }
+      }else{
         /*
-           Norm 2 computation using 2x2 pixel window:
-             A B
-             C D
-           and
-             com1 = D-A,  com2 = B-C.
-           Then
-             gx = B+D - (A+C)   horizontal difference
-             gy = C+D - (A+B)   vertical difference
-           com1 and com2 are just to avoid 2 additions.
-         */
+          Norm 2 computation using 2x2 pixel window:
+            A B
+            C D
+          and
+            com1 = D-A,  com2 = B-C.
+          Then
+            gx = B+D - (A+C)   horizontal difference
+            gy = C+D - (A+B)   vertical difference
+          com1 and com2 are just to avoid 2 additions.
+        */
         com1 = in->data[ adr + xsize + 1 ] - in->data[ adr ];
         com2 = in->data[ adr + 1 ] - in->data[ adr + xsize ];
         gx = com1 + com2;
@@ -352,32 +390,37 @@ void img_gradient_sort( PImageDouble in, double threshold, CoordList **list_p,
         norm2 = gx*gx + gy*gy;
         norm  = sqrt( norm2 / 4.0 );
 
+        gx = gx / 2.0;
+        gy = gy / 2.0;
+
         (*gradmag)->data[adr] = norm;
-	(*gradx)->data  [adr] = gx/2.0;
-	(*grady)->data  [adr] = gy/2.0;
+
         if( norm <= threshold ) /* norm too small, gradient not defined */
-          {
-            (*angles)->data[adr] = NOTDEF;
-          }
+          (*angles)->data[adr] = NOTDEF;
         else
-	  {
-            /* angle computation */
-	    (*angles)->data[adr] = atan2( gy, gx );
-            /* store the point in the right bin according to its norm */
-            ind = (unsigned int) (norm * (double) n_bins / max_grad);
-            if( ind >= n_bins ) ind = n_bins - 1;
-            if( range_l_e[ind] == NULL)
-                range_l_s[ind] = range_l_e[ind] = list + list_count++;
-            else
-	      {
-                range_l_e[ind]->next = list + list_count;
-                range_l_e[ind]       = list + list_count++;
-              }
-            range_l_e[ind]->x    = (int) j;
-            range_l_e[ind]->y    = (int) i;
-            range_l_e[ind]->next = NULL;
-         }
+          /* angle computation */
+          (*angles)->data[adr] = atan2( gy, gx );
       }
+
+      /* Store gradient components */
+      (*gradx)->data  [adr] = gx;
+      (*grady)->data  [adr] = gy;
+
+      if( norm > threshold ){
+        /* store the point in the right bin according to its norm */
+        ind = (unsigned int) (norm * (double) n_bins / max_grad);
+        if( ind >= n_bins ) ind = n_bins - 1;
+        if( range_l_e[ind] == NULL)
+            range_l_s[ind] = range_l_e[ind] = list + list_count++;
+        else{
+          range_l_e[ind]->next = list + list_count;
+          range_l_e[ind]       = list + list_count++;
+        }
+        range_l_e[ind]->x    = (int) j;
+        range_l_e[ind]->y    = (int) i;
+        range_l_e[ind]->next = NULL;
+      }
+    }
 
   /* Make the list of points "ordered" by norm value.
      It starts by the larger bin, so the list starts by the

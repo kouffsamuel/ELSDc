@@ -778,7 +778,7 @@ void add_ell_out( Ring **ell_out, Ring *ell, int ell_count, int *ell_count_max,
  */
 void ELSDc( PImageDouble in, int *ell_count, Ring **ell_out, int **ell_labels,
             int *poly_count, Polygon **poly_out, int **poly_labels, 
-            PImageInt out )
+            PImageInt out, double *grad_ptr, double *angles_ptr)
 {
   double ang_th = 22.5;     /* gradient angle tolerance in degrees */
   double prec;              /* radian precision */
@@ -814,9 +814,9 @@ void ELSDc( PImageDouble in, int *ell_count, Ring **ell_out, int **ell_labels,
                                'e' for ellipse */
   PImageDouble imgauss;     /* smooth version of the original image, used during
                                candidate selection */
-  PImageDouble angles;      /* gradient angles smooth image */
+  PImageDouble angles = NULL;      /* gradient angles smooth image */
   PImageDouble angles0;     /* gradient angles original image */
-  PImageDouble gradmag;     /* gradient magnitude */
+  PImageDouble gradmag = NULL;     /* gradient magnitude */
   PImageDouble gradx, grady;/* gradient orientations on Ox and Oy */
   PImageInt used;           /* image to mark already used points */
   PolyRect *poly;           /* parameters of polygon as list of rectangles */
@@ -903,12 +903,22 @@ void ELSDc( PImageDouble in, int *ell_count, Ring **ell_out, int **ell_labels,
   /* perform gaussian smoothing */
   imgauss = gaussian_sampler( in, 1.0, 0.6 );
 
+  if(grad_ptr != NULL && angles_ptr != NULL) {
+      /* use precomputed gradient magnitude and angle gradient */
+      gradmag = new_PImageDouble_ptr(xsize, ysize, grad_ptr);
+      angles = new_PImageDouble_ptr(xsize, ysize, angles_ptr);
+  }
+
   /* compute gradient magnitude and orientation  for the smooth image */
   img_gradient_sort( imgauss, rho, &list_p, &mem_p, n_bins, max_grad, &angles, 
                      &gradmag, &gradx, &grady );
 
   /* compute gradient orientation for the original image */
-  angles0 = img_gradient_angle( in, rho );
+  if(angles_ptr != NULL) {
+      angles0 = new_PImageDouble_ptr(xsize, ysize, angles_ptr);
+  } else {
+      angles0 = img_gradient_angle( in, rho );
+  }
  
   /* input image not needed any more; free it */
   // free_PImageDouble(in);

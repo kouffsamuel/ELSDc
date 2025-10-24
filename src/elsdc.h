@@ -30,5 +30,5 @@
 
 void ELSDc( PImageDouble in, int *ell_count, Ring **ell_out, int **ell_labels,
             int *poly_count, Polygon **poly_out, int **poly_labels, 
-            PImageInt out );
+            PImageInt out, double *grad_ptr, double *angles_ptr);
 #endif

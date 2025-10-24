@@ -84,6 +84,8 @@ void free_PImageDouble( PImageDouble i );
 PImageDouble new_PImageDouble( unsigned int xsize, unsigned int ysize );
 PImageDouble new_PImageDouble_ini( unsigned int xsize, unsigned int ysize,
                                    double fill_value );
+PImageDouble new_PImageDouble_ptr( unsigned int xsize, unsigned int ysize,
+                                   double *data );
 
 PImageDouble img_gradient_angle( PImageDouble in, double threshold );
 void img_gradient_sort( PImageDouble in, double threshold, CoordList **list_p, 

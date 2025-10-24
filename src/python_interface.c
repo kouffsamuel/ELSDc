@@ -6,7 +6,8 @@
 
 extern int detect_primitives(Ring **ell_out, int **ell_labels, int *ell_count, 
   Polygon **poly_out, int **poly_labels, int *poly_count, 
-  int **out, double *in, size_t xsize, size_t ysize)
+  int **out, double *in, size_t xsize, size_t ysize, double *grad_ptr, 
+  double *angles_ptr)
 {
   PImageInt out_img;   /* output image having the same size as 'in'; the pixels
                           supporting a certain geometric primitive are marked
@@ -14,7 +15,7 @@ extern int detect_primitives(Ring **ell_out, int **ell_labels, int *ell_count,
   struct ImageDouble in_img = {.data=in, .xsize=xsize, .ysize=ysize};
   out_img = new_PImageInt_ini(xsize, ysize, 0);
   ELSDc(&in_img, ell_count, ell_out, ell_labels, poly_count, poly_out,
-    poly_labels, out_img);
+    poly_labels, out_img, grad_ptr, angles_ptr);
   *out = out_img->data;
   free(out_img);
   return 0;

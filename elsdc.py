@@ -33,18 +33,7 @@ class _Polygon(Structure):
         ("dim", c_int), ("pts", POINTER(_PointD))
     ]
 
-""" 
-Elliptical/circular ring structure. A ring is defined by end points, width,
-    center, orientation, axes, delimiting angles.
-float x1, y1, x2, y2;     End points of the circle/ellipse arc 
-float width;              ring width
-float cx, cy;             center of the circle/ellipse
-float theta;              ellipse orientation; 0 for circle
-float ax, bx;             ellipse axes; ax=bx for circle
-float ang_start, ang_end; delimiting angles
-float wmin, wmax;         width towards interior and exterior
-int full;                 if full == 1, circle/ellipse complete, used for display
-"""
+
 class Ring:
     def __init__(self, x1: float, y1: float, x2: float, y2: float, 
         width: float, cx: float, cy: float, theta: float, ax: float, bx: float,
@@ -68,11 +57,7 @@ class Ring:
         self.full = full
         self.label = label
 
-"""
-Polygon defined through consecutive ends of its segments.
-int dim;                number of segment endpoints in the polygon; it is twice the number of line segments of the polygon
-PointD *pts;            endpoints of the segments in the polygon
-"""
+
 class Polygon:
     def __init__(self, dim: int, pts: np.ndarray, label: int):
         self.dim = dim
@@ -80,8 +65,8 @@ class Polygon:
         self.label = label
 
 
-def detect_primitives(img: np.ndarray):
-    p_set = _detect_primitives(img)
+def detect_primitives(img: np.ndarray, grad_ptr: np.ndarray = None, angles_ptr: np.ndarray = None):
+    p_set = _detect_primitives(img, grad_ptr, angles_ptr)
     ell_arr: List[Ring] = []
     poly_arr: List[Polygon] = []
     for i in range(p_set.ell_count):
@@ -106,9 +91,9 @@ def detect_primitives(img: np.ndarray):
     return ell_arr, poly_arr, output_img
 
 
-def _detect_primitives(img: np.ndarray) -> "PrimitveSet":
+def _detect_primitives(img: np.ndarray, grad_ptr: np.ndarray = None, angles_ptr: np.ndarray = None) -> "PrimitveSet":
     img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY).astype("float64")
-    h, w = img_gray.shape
+    h, w = img_gray .shape
     ell_arr = POINTER(_Ring)()
     ell_label_arr = POINTER(c_int)()
     ell_count = c_int()
@@ -116,11 +101,17 @@ def _detect_primitives(img: np.ndarray) -> "PrimitveSet":
     poly_label_arr = POINTER(c_int)()
     poly_count = c_int()
     output_img = POINTER(c_int)()
+    if grad_ptr is not None and angles_ptr is not None:
+        grad_c_ptr = grad_ptr.ctypes.data_as(POINTER(c_double))
+        angles_c_ptr = angles_ptr.ctypes.data_as(POINTER(c_double))
+    else:
+        grad_c_ptr = None
+        angles_c_ptr = None
     elsdc.detect_primitives(
         byref(ell_arr), byref(ell_label_arr), byref(ell_count),
         byref(poly_arr), byref(poly_label_arr), byref(poly_count),
         byref(output_img), img_gray.ctypes.data_as(POINTER(c_double)),
-        w, h
+        w, h, grad_c_ptr, angles_c_ptr
     )
     return PrimitveSet(
         ell_arr, ell_label_arr, ell_count.value, poly_arr, 
@@ -163,5 +154,6 @@ if __name__ == "__main__":
     start = time.monotonic()
     ellipses, polygons, out_img = detect_primitives(img)
     print("Detection took {}s".format(time.monotonic() - start))
-    plt.imshow(out_img)
-    plt.show()
+    #plt.imshow(out_img)
+    #plt.savefig("test.png")
+    print(ellipses)
