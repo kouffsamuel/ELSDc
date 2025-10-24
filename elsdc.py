@@ -33,7 +33,18 @@ class _Polygon(Structure):
         ("dim", c_int), ("pts", POINTER(_PointD))
     ]
 
-
+""" 
+Elliptical/circular ring structure. A ring is defined by end points, width,
+    center, orientation, axes, delimiting angles.
+float x1, y1, x2, y2;     End points of the circle/ellipse arc 
+float width;              ring width
+float cx, cy;             center of the circle/ellipse
+float theta;              ellipse orientation; 0 for circle
+float ax, bx;             ellipse axes; ax=bx for circle
+float ang_start, ang_end; delimiting angles
+float wmin, wmax;         width towards interior and exterior
+int full;                 if full == 1, circle/ellipse complete, used for display
+"""
 class Ring:
     def __init__(self, x1: float, y1: float, x2: float, y2: float, 
         width: float, cx: float, cy: float, theta: float, ax: float, bx: float,
@@ -57,7 +68,11 @@ class Ring:
         self.full = full
         self.label = label
 
-
+"""
+Polygon defined through consecutive ends of its segments.
+int dim;                number of segment endpoints in the polygon; it is twice the number of line segments of the polygon
+PointD *pts;            endpoints of the segments in the polygon
+"""
 class Polygon:
     def __init__(self, dim: int, pts: np.ndarray, label: int):
         self.dim = dim
@@ -93,7 +108,7 @@ def detect_primitives(img: np.ndarray, grad_ptr: np.ndarray = None, angles_ptr: 
 
 def _detect_primitives(img: np.ndarray, grad_ptr: np.ndarray = None, angles_ptr: np.ndarray = None) -> "PrimitveSet":
     img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY).astype("float64")
-    h, w = img_gray .shape
+    h, w = img_gray.shape
     ell_arr = POINTER(_Ring)()
     ell_label_arr = POINTER(c_int)()
     ell_count = c_int()
@@ -152,8 +167,9 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     img = cv2.imread(sys.argv[1])
     start = time.monotonic()
-    ellipses, polygons, out_img = detect_primitives(img)
+    grad_ptr = np.empty(img.shape[:2], dtype=np.float64)
+    angles_ptr = np.empty(img.shape[:2], dtype=np.float64)
+    ellipses, polygons, out_img = detect_primitives(img, grad_ptr, angles_ptr)
     print("Detection took {}s".format(time.monotonic() - start))
-    #plt.imshow(out_img)
-    #plt.savefig("test.png")
-    print(ellipses)
+    plt.imshow(out_img)
+    plt.show()

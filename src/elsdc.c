@@ -778,7 +778,7 @@ void add_ell_out( Ring **ell_out, Ring *ell, int ell_count, int *ell_count_max,
  */
 void ELSDc( PImageDouble in, int *ell_count, Ring **ell_out, int **ell_labels,
             int *poly_count, Polygon **poly_out, int **poly_labels, 
-            PImageInt out, double *grad_ptr, double *angles_ptr)
+            PImageInt out, double *grad_ptr, double *angles_ptr )
 {
   double ang_th = 22.5;     /* gradient angle tolerance in degrees */
   double prec;              /* radian precision */
@@ -793,7 +793,7 @@ void ELSDc( PImageDouble in, int *ell_count, Ring **ell_out, int **ell_labels,
   double density_th = 0.7;  /* minimum density */
   void *mem_p;              /* parameters used for sorting */ 
   int n_bins = 1024;        /* (binning) pixels according to */  
-  double max_grad = 255.0;  /* to their gradient magnitude */
+  double max_grad = 0.0;  /* to their gradient magnitude */
   CoordList *list_p;        /* list of sorted pixels */
   unsigned int xsize,ysize; /* image size */
   double mlog10eps = 0.0;   /* minus log of the number of accepted false 
@@ -814,9 +814,9 @@ void ELSDc( PImageDouble in, int *ell_count, Ring **ell_out, int **ell_labels,
                                'e' for ellipse */
   PImageDouble imgauss;     /* smooth version of the original image, used during
                                candidate selection */
-  PImageDouble angles = NULL;      /* gradient angles smooth image */
+  PImageDouble angles;      /* gradient angles smooth image */
   PImageDouble angles0;     /* gradient angles original image */
-  PImageDouble gradmag = NULL;     /* gradient magnitude */
+  PImageDouble gradmag;     /* gradient magnitude */
   PImageDouble gradx, grady;/* gradient orientations on Ox and Oy */
   PImageInt used;           /* image to mark already used points */
   PolyRect *poly;           /* parameters of polygon as list of rectangles */
@@ -903,22 +903,16 @@ void ELSDc( PImageDouble in, int *ell_count, Ring **ell_out, int **ell_labels,
   /* perform gaussian smoothing */
   imgauss = gaussian_sampler( in, 1.0, 0.6 );
 
-  if(grad_ptr != NULL && angles_ptr != NULL) {
-      /* use precomputed gradient magnitude and angle gradient */
-      gradmag = new_PImageDouble_ptr(xsize, ysize, grad_ptr);
-      angles = new_PImageDouble_ptr(xsize, ysize, angles_ptr);
-  }
-
   /* compute gradient magnitude and orientation  for the smooth image */
   img_gradient_sort( imgauss, rho, &list_p, &mem_p, n_bins, max_grad, &angles, 
-                     &gradmag, &gradx, &grady );
+                     &gradmag, &gradx, &grady, grad_ptr, angles_ptr );
 
   /* compute gradient orientation for the original image */
-  if(angles_ptr != NULL) {
-      angles0 = new_PImageDouble_ptr(xsize, ysize, angles_ptr);
-  } else {
-      angles0 = img_gradient_angle( in, rho );
-  }
+   if(angles_ptr != NULL){
+     angles0 = new_PImageDouble_ptr(xsize, ysize, angles_ptr);
+    }else{
+    angles0 = img_gradient_angle( in, rho );
+    }
  
   /* input image not needed any more; free it */
   // free_PImageDouble(in);
@@ -928,7 +922,6 @@ void ELSDc( PImageDouble in, int *ell_count, Ring **ell_out, int **ell_labels,
   poly = new_polyrect();
   seg = new_polyrect();
 
-  
   /* begin primitive detection */
   for( ; list_p; list_p = list_p->next )
     { 
@@ -956,13 +949,11 @@ void ELSDc( PImageDouble in, int *ell_count, Ring **ell_out, int **ell_labels,
       reg[0].x = list_p->x; 
       reg[0].y = list_p->y;
       reg_size = 1;
-
       /* Gather points aligned along a convex polygon */
       if( !curve_grow( gradmag, angles, used, reg, &reg_size, density_th,
                        prec, poly, &label, pext2, pext1, &spir ) ) 
         continue;
 
-      
       /* Validate polygon */
       /* Compute number of tests for polygon; it must be done for each 
          polygon, as it depends on the number of segments in the 
@@ -979,14 +970,12 @@ void ELSDc( PImageDouble in, int *ell_count, Ring **ell_out, int **ell_labels,
           best_feature = (void*)poly;
           best_type = 'p';
         }         
-
       /* Estimate a single segment on the entire set and validate; 
          this prevents from considering very small regions at the ends 
          of a large segment as new segments. */
       get_seg( angles, gradmag, used, seg, reg, reg_size, prec );
       log_nfa = poly_improve( angles0, used, seg, &new_buff, 
                               &size_new_buff, &tmp_buff, logNT_seg );
-    
       /* if more meaningful than previous, update best feature */
       if( log_nfa > best_nfa && size_new_buff>min_size_seg ) 
         {
@@ -1070,13 +1059,22 @@ void ELSDc( PImageDouble in, int *ell_count, Ring **ell_out, int **ell_labels,
    
     }  /* ! for loop */
 
-  /* free useless structures and arrays */		    
+  /* free useless structures and arrays */
   free_PImageDouble(imgauss);
   free_PImageDouble(gradx); 
   free_PImageDouble(grady);
-  free_PImageDouble(gradmag); 
-  free_PImageDouble(angles);
-  free_PImageDouble(angles0);  
+  if (grad_ptr != NULL){
+    free(gradmag);
+  }else{
+    free_PImageDouble(gradmag);
+  }
+  if (angles_ptr != NULL){
+    free(angles);
+    free(angles0);
+  }else{
+    free_PImageDouble(angles);
+    free_PImageDouble(angles0);  
+  }
   free_PImageInt(used);
   free(reg); 
   free(best_buff);

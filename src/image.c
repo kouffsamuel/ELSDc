@@ -190,6 +190,31 @@ PImageDouble new_PImageDouble( unsigned int xsize, unsigned int ysize )
   return image;
 }
 
+PImageDouble new_PImageDouble_ptr( unsigned int xsize, unsigned int ysize,
+                                   double *data )
+{
+  PImageDouble image;
+
+  /* check parameters */
+  if( (xsize == 0) || (ysize == 0) ) 
+    error("new_PImageDouble_ptr: invalid image size.");
+  if( data == NULL ) 
+    error("new_PImageDouble_ptr: nullptr data pointer.");
+
+  /* get memory for structure only - DO NOT allocate data */
+  image = (PImageDouble) malloc( sizeof( struct ImageDouble ) );
+  if( image == NULL ) error("new_PImageDouble_ptr: not enough memory.");
+
+  /* set image size */
+  image->xsize = xsize;
+  image->ysize = ysize;
+  
+  /* use external data pointer */
+  image->data = data;
+
+  return image;
+}
+
 
 /*----------------------------------------------------------------------------*/
 /** Create a new PImageDouble of size 'xsize' times 'ysize',
@@ -208,25 +233,6 @@ PImageDouble new_PImageDouble_ini( unsigned int xsize, unsigned int ysize,
   /* initialize */
   N = xsize * ysize;
   for( i=0; i<N; i++ ) image->data[i] = fill_value;
-
-  return image;
-}
-
-PImageDouble new_PImageDouble_ptr( unsigned int xsize, unsigned int ysize,
-                                   double *data )
-{
-  PImageDouble image;
-
-  /* check parameters */
-  if( (xsize == 0) || (ysize == 0) ) 
-    error("new_PImageDouble_ptr: invalid image size.");
-  if( data == NULL ) 
-    error("new_PImageDouble_ptr: nullptr data pointer.");
-
-  /* get memory for structure only */
-  image = new_PImageDouble(xsize, ysize);
-
-  image->data = data;
 
   return image;
 }
@@ -296,11 +302,11 @@ PImageDouble img_gradient_angle( PImageDouble in, double threshold )
 void img_gradient_sort( PImageDouble in, double threshold, CoordList **list_p, 
                         void **mem_p, unsigned int n_bins, double max_grad, 
                         PImageDouble *angles, PImageDouble *gradmag, 
-                        PImageDouble *gradx, PImageDouble *grady )
+                        PImageDouble *gradx, PImageDouble *grady, double *grad_ptr,
+                        double *angles_ptr)
 {
   unsigned int xsize, ysize, adr, ind, i, j;
   double com1, com2, gx, gy, norm, norm2;
-  int use_precomputed = 1;
 
   /* the rest of the variables are used for pseudo-ordering
      the gradient magnitude values */
@@ -320,24 +326,25 @@ void img_gradient_sort( PImageDouble in, double threshold, CoordList **list_p,
   if( list_p == NULL ) error("img_gradient_sort: NULL pointer 'list_p'.");
   if( mem_p == NULL ) error("img_gradient_sort: NULL pointer 'mem_p'.");
   if( n_bins <= 0 ) error("img_gradient_sort: 'n_bins' must be positive.");
-  if( max_grad <= 0.0 ) 
+  if( max_grad < 0.0 ) 
     error("img_gradient_sort: 'max_grad' must be positive.");
 
   xsize = in->xsize;
   ysize = in->ysize;
+  int use_precomputed = 0;
 
-  if((*gradmag != NULL) && (*angles != NULL)){
-    if((*gradmag)->xsize != xsize || (*gradmag)->ysize != ysize || (*angles)->xsize != xsize || (*angles)->ysize != ysize){
-        error("img_gradient_sort: precomputed gradmag/angles dimensions mismatch.");
-       }
-    use_precomputed = 1;
+  if(grad_ptr != NULL && angles_ptr != NULL)
+  {
+      /* allocate output gradient magnitude image with external pointer */
+      *gradmag = new_PImageDouble_ptr( xsize, ysize, grad_ptr );
+      *angles = new_PImageDouble_ptr( xsize, ysize, angles_ptr );
+      use_precomputed = 1;
   }else{
-    use_precomputed = 0;
-    /* allocate output angles image */
-    *angles = new_PImageDouble( in->xsize, in->ysize );
-    *gradmag = new_PImageDouble( in->xsize, in->ysize );
+      /* allocate output gradient magnitude image */
+      *gradmag = new_PImageDouble( xsize, ysize );
+      *angles = new_PImageDouble( xsize, ysize );
   }
-  
+
   /* allocate image of gradient modulus and gradient vector components
      on Ox and Oy */
   *gradx   = new_PImageDouble( in->xsize, in->ysize );
@@ -354,23 +361,24 @@ void img_gradient_sort( PImageDouble in, double threshold, CoordList **list_p,
   for( i=0; i<n_bins; i++ ) 
     range_l_s[i] = range_l_e[i] = NULL;
 
-  /* 'undefined' on the down and right boundaries */
-  for( i=0; i<ysize; i++ ) (*angles)->data[ i * xsize + xsize - 1 ] = NOTDEF;
-  for( j=0; j<xsize; j++ ) (*angles)->data[ (ysize-1) * xsize + j ] = NOTDEF;
+  if (!use_precomputed){
+    /* 'undefined' on the down and right boundaries */
+    for( i=0; i<ysize; i++ ) (*angles)->data[ i * xsize + xsize - 1 ] = NOTDEF;
+    for( j=0; j<xsize; j++ ) (*angles)->data[ (ysize-1) * xsize + j ] = NOTDEF;
+  }
 
+  for (i = 0; i < (*gradmag)->xsize * (*gradmag)->ysize; i++) {
+    if ((*gradmag)->data[i] > max_grad) max_grad = (*gradmag)->data[i];
+  }
+  
   /*** remaining part ***/
   for( i=0; i<ysize-1; i++ )
     for( j=0; j<xsize-1; j++ ){
       adr = i * xsize + j;
       if(use_precomputed){
         norm = (*gradmag)->data[adr];
-        if((*angles)->data[adr] != NOTDEF){
-            gx = norm * cos((*angles)->data[adr]);
-            gy = norm * sin((*angles)->data[adr]);
-        }else{
-            gx = 0.0;
-            gy = 0.0;
-        }
+        gx = norm * cos( (*angles)->data[adr] );
+        gy = norm * sin( (*angles)->data[adr] );
       }else{
         /*
           Norm 2 computation using 2x2 pixel window:
@@ -406,22 +414,19 @@ void img_gradient_sort( PImageDouble in, double threshold, CoordList **list_p,
       (*gradx)->data  [adr] = gx;
       (*grady)->data  [adr] = gy;
 
-      if( norm > threshold ){
-        /* store the point in the right bin according to its norm */
-        ind = (unsigned int) (norm * (double) n_bins / max_grad);
-        if( ind >= n_bins ) ind = n_bins - 1;
-        if( range_l_e[ind] == NULL)
-            range_l_s[ind] = range_l_e[ind] = list + list_count++;
-        else{
-          range_l_e[ind]->next = list + list_count;
-          range_l_e[ind]       = list + list_count++;
-        }
-        range_l_e[ind]->x    = (int) j;
-        range_l_e[ind]->y    = (int) i;
-        range_l_e[ind]->next = NULL;
+      /* store the point in the right bin according to its norm */
+      ind = (unsigned int) (norm * (double) n_bins / max_grad);
+      if( ind >= n_bins ) ind = n_bins - 1;
+      if( range_l_e[ind] == NULL)
+          range_l_s[ind] = range_l_e[ind] = list + list_count++;
+      else{
+        range_l_e[ind]->next = list + list_count;
+        range_l_e[ind]       = list + list_count++;
       }
+      range_l_e[ind]->x    = (int) j;
+      range_l_e[ind]->y    = (int) i;
+      range_l_e[ind]->next = NULL;
     }
-
   /* Make the list of points "ordered" by norm value.
      It starts by the larger bin, so the list starts by the
      pixels with higher gradient value. */

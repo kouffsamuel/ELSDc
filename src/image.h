@@ -91,7 +91,8 @@ PImageDouble img_gradient_angle( PImageDouble in, double threshold );
 void img_gradient_sort( PImageDouble in, double threshold, CoordList **list_p, 
                         void **mem_p, unsigned int n_bins, double max_grad, 
                         PImageDouble *angles, PImageDouble *gradmag, 
-                        PImageDouble *gradx, PImageDouble *grady );
+                        PImageDouble *gradx, PImageDouble *grady, double *grad_ptr,
+                        double *angles_ptr);
 void mark_img_pts( PImageInt im, Point *pts, int start, int end, int label );
 int in_image( int x, int y, unsigned int xsize, unsigned int ysize);
 int local_max( PImageDouble im, int x, int y );

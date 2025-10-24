@@ -6,8 +6,7 @@
 
 extern int detect_primitives(Ring **ell_out, int **ell_labels, int *ell_count, 
   Polygon **poly_out, int **poly_labels, int *poly_count, 
-  int **out, double *in, size_t xsize, size_t ysize, double *grad_ptr, 
-  double *angles_ptr)
+  int **out, double *in, size_t xsize, size_t ysize, double *grad_ptr, double *angles_ptr)
 {
   PImageInt out_img;   /* output image having the same size as 'in'; the pixels
                           supporting a certain geometric primitive are marked
