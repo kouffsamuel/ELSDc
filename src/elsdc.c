@@ -793,7 +793,7 @@ void ELSDc( PImageDouble in, int *ell_count, Ring **ell_out, int **ell_labels,
   double density_th = 0.7;  /* minimum density */
   void *mem_p;              /* parameters used for sorting */ 
   int n_bins = 1024;        /* (binning) pixels according to */  
-  double max_grad = 0.0;  /* to their gradient magnitude */
+  double max_grad = 0.0;    /* to their gradient magnitude. Initialize here to 0 first because we need to be compatible, if we provide grad_ptr or angles_ptr */
   CoordList *list_p;        /* list of sorted pixels */
   unsigned int xsize,ysize; /* image size */
   double mlog10eps = 0.0;   /* minus log of the number of accepted false 
@@ -909,6 +909,7 @@ void ELSDc( PImageDouble in, int *ell_count, Ring **ell_out, int **ell_labels,
 
   /* compute gradient orientation for the original image */
   if(angles_ptr != NULL){
+    /* angles0 == angles */
     angles0 = new_PImageDouble_ptr(xsize, ysize, angles_ptr);
   }else{
     angles0 = img_gradient_angle( in, rho );
@@ -1063,11 +1064,14 @@ void ELSDc( PImageDouble in, int *ell_count, Ring **ell_out, int **ell_labels,
   free_PImageDouble(imgauss);
   free_PImageDouble(gradx); 
   free_PImageDouble(grady);
+
+  /* If we provide grad_ptr or angles_ptr we can't free them here. That's why we don't use free_PImageDouble */
   if (grad_ptr != NULL){
     free(gradmag);
   }else{
     free_PImageDouble(gradmag);
   }
+
   if (angles_ptr != NULL){
     free(angles);
     free(angles0);

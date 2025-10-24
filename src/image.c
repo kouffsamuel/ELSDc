@@ -335,12 +335,12 @@ void img_gradient_sort( PImageDouble in, double threshold, CoordList **list_p,
 
   if(grad_ptr != NULL && angles_ptr != NULL)
   {
-      /* allocate output gradient magnitude image with external pointer */
+      /* allocate output gradient magnitude and angle image with external pointer */
       *gradmag = new_PImageDouble_ptr( xsize, ysize, grad_ptr );
       *angles = new_PImageDouble_ptr( xsize, ysize, angles_ptr );
       use_precomputed = 1;
   }else{
-      /* allocate output gradient magnitude image */
+      /* allocate output gradient magnitude and angle image */
       *gradmag = new_PImageDouble( xsize, ysize );
       *angles = new_PImageDouble( xsize, ysize );
   }
@@ -365,8 +365,11 @@ void img_gradient_sort( PImageDouble in, double threshold, CoordList **list_p,
     /* 'undefined' on the down and right boundaries */
     for( i=0; i<ysize; i++ ) (*angles)->data[ i * xsize + xsize - 1 ] = NOTDEF;
     for( j=0; j<xsize; j++ ) (*angles)->data[ (ysize-1) * xsize + j ] = NOTDEF;
+
+    /* In case, we don't provide grad_ptr or angles_ptr, set max_grad to 255.0 */
     max_grad = 255.0;
   }else{
+    /* Otherwise, find the maximum gradient */
     for (i = 0; i < (*gradmag)->xsize * (*gradmag)->ysize; i++) {
     if ((*gradmag)->data[i] > max_grad) max_grad = (*gradmag)->data[i];
     }
@@ -378,6 +381,7 @@ void img_gradient_sort( PImageDouble in, double threshold, CoordList **list_p,
       adr = i * xsize + j;
       if(use_precomputed){
         norm = (*gradmag)->data[adr];
+        /* retrieve gradient components */
         gx = norm * cos( (*angles)->data[adr] );
         gy = norm * sin( (*angles)->data[adr] );
       }else{
