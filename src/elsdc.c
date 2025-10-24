@@ -908,11 +908,11 @@ void ELSDc( PImageDouble in, int *ell_count, Ring **ell_out, int **ell_labels,
                      &gradmag, &gradx, &grady, grad_ptr, angles_ptr );
 
   /* compute gradient orientation for the original image */
-   if(angles_ptr != NULL){
-     angles0 = new_PImageDouble_ptr(xsize, ysize, angles_ptr);
-    }else{
+  if(angles_ptr != NULL){
+    angles0 = new_PImageDouble_ptr(xsize, ysize, angles_ptr);
+  }else{
     angles0 = img_gradient_angle( in, rho );
-    }
+  }
  
   /* input image not needed any more; free it */
   // free_PImageDouble(in);

@@ -365,10 +365,11 @@ void img_gradient_sort( PImageDouble in, double threshold, CoordList **list_p,
     /* 'undefined' on the down and right boundaries */
     for( i=0; i<ysize; i++ ) (*angles)->data[ i * xsize + xsize - 1 ] = NOTDEF;
     for( j=0; j<xsize; j++ ) (*angles)->data[ (ysize-1) * xsize + j ] = NOTDEF;
-  }
-
-  for (i = 0; i < (*gradmag)->xsize * (*gradmag)->ysize; i++) {
+    max_grad = 255.0;
+  }else{
+    for (i = 0; i < (*gradmag)->xsize * (*gradmag)->ysize; i++) {
     if ((*gradmag)->data[i] > max_grad) max_grad = (*gradmag)->data[i];
+    }
   }
   
   /*** remaining part ***/
