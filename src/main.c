@@ -83,7 +83,7 @@ int main( int argc, char **argv )
   
   /* call detection procedure */
   ELSDc( in, &ell_count, &ell_out, &ell_labels, &poly_count, &poly_out, 
-         &poly_labels, out );
+         &poly_labels, out, NULL, NULL);
   free_PImageDouble(in);
 
   /* write results in ASCII */
